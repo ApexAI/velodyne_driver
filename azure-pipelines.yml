@@ -1,0 +1,32 @@
+trigger:
+  branches:
+    include:
+    - master
+  paths:
+    exclude:
+    - README.md
+
+container:
+  image: ros:dashing
+  options: "--name ci-container -v /usr/bin/docker:/tmp/docker:ro"
+
+steps:
+  - script: |
+      /tmp/docker exec -t -u 0 ci-container \
+      sh -c "apt-get update && DEBIAN_FRONTEND=noninteractive apt-get -o Dpkg::Options::="--force-confold" -y install sudo"
+    displayName: Set up sudo
+  - script: sudo apt-get install -y python3-colcon-common-extensions
+    displayName: Install colcon
+  - script: rosdep update && rosdep install -y --from . --ignore-src
+    displayName: Install ROS dependencies
+  - script: |
+      source /opt/ros/dashing/setup.bash
+      colcon build \
+        --cmake-args \
+          -DCMAKE_BUILD_TYPE=Release
+    displayName: Build velodyne_driver
+  - script: |
+      source /opt/ros/dashing/setup.bash
+      colcon test
+      colcon test-result --verbose
+    displayName: Test velodyne_driver
